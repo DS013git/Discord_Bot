@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { tenorApi } = require('./config.json');
 
 module.exports = {
@@ -28,8 +28,15 @@ module.exports = {
 			// Pick a random gif
 			const randomIndex = Math.floor(Math.random() * data.results.length);
 			const randomGif = data.results[randomIndex].media_formats.gif.url;
-
-			await interaction.reply(randomGif);
+			const randomColor = Math.floor(Math.random() * 16777215);
+			const animeName = data.results[randomIndex].content_description || 'Unknown Anime';
+			const embed = new EmbedBuilder()
+				.setColor(randomColor)
+				.setTitle(`${animeName}`)
+				.setImage(randomGif)
+				// .setFooter({ text: `Anime: ${animeName}` })
+				.setTimestamp();
+			await interaction.reply({ embeds: [embed] });
 		}
 		catch (error) {
 			console.error(error);

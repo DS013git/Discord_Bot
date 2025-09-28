@@ -1,4 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
+
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName('guide')
@@ -11,6 +12,9 @@ module.exports = {
 			option.setName('version')
 				.setDescription('Version to search in')
 				.setAutocomplete(true)),
+	async execute(interaction) {
+		await interaction.reply('Use autocomplete in the options!');
+	},
 	async autocomplete(interaction) {
 		const focusedOption = interaction.options.getFocused(true);
 		let choices;

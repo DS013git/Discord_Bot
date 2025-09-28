@@ -1,11 +1,11 @@
 // Require the necessary discord.js classes
 const fs = require('node:fs');
 const path = require('node:path');
-const { Client, Collection, Events, GatewayIntentBits, MessageFlags } = require('discord.js');
+const { Client, Collection, Events, GatewayIntentBits, MessageFlags, ActivityType } = require('discord.js');
 const { token } = require('./config.json');
 
 // Create a new client instance
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
 client.cooldowns = new Collection();
 client.commands = new Collection();
@@ -39,6 +39,9 @@ for (const folder of commandFolders) {
 
 client.once(Events.ClientReady, readyClient => {
 	console.log(`Ready! Logged in as ${readyClient.user.tag}`);
+	client.user.setActivity('I am cursed', {
+		type: ActivityType.Watching,
+	});
 });
 
 client.on(Events.InteractionCreate, async interaction => {
@@ -87,6 +90,29 @@ client.on(Events.InteractionCreate, async interaction => {
 	}
 });
 
+client.on('messageCreate', message => {
+	if (message.author.bot) return;
+
+	if (message.content.startsWith('DS')) {
+		const input = message.content.slice(2).trim();
+		const parts = input.split(/\s+/);
+		const minutes = parseFloat(parts[0]);
+		const reason = parts.slice(1).join(' ') || 'No reason provided';
+		if (isNaN(minutes) || minutes <= 0) {
+			return message.reply('Type DS, the number of minutes and the reason for the reminder. Example: DS 5 (for 5 minutes)');
+		}
+		const ms = minutes * 60 * 1000;
+		const MAX_MS = 2147483647;
+		if (ms > MAX_MS) {
+			return message.reply('The maximum number of minutes for a reminder is 35791 minutes (about 25 days). Please enter a smaller number.');
+		}
+		message.reply(`Reminder set for **${minutes} minute(s)** with reason: ${reason}.`);
+
+		setTimeout(() => {
+			message.reply(`@${message.author.id} **${reason}**`);
+		}, ms);
+	}
+});
 // this code is for commands that you can only see
 // client.on(Events.InteractionCreate, async interaction => {
 // 	if (!interaction.isChatInputCommand()) return;
@@ -95,6 +121,27 @@ client.on(Events.InteractionCreate, async interaction => {
 // 		await interaction.reply({ content: 'Secret Pong!', flags: MessageFlags.Ephemeral });
 // 	}
 // });
+
+client.on(Events.InteractionCreate, async interaction => {
+	if (interaction.isChatInputCommand()) {
+		// command handling
+	}
+	else if (interaction.isAutocomplete()) {
+		const command = interaction.client.commands.get(interaction.commandName);
+
+		if (!command) {
+			console.error(`No command matching ${interaction.commandName} was found.`);
+			return;
+		}
+
+		try {
+			await command.autocomplete(interaction);
+		}
+		catch (error) {
+			console.error(error);
+		}
+	}
+});
 
 
 // Log in to Discord with your client's token
