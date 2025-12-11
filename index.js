@@ -2,10 +2,15 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, Events, GatewayIntentBits, MessageFlags, ActivityType } = require('discord.js');
+const { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const { token } = require('./config.json');
+const mongoose = require('mongoose');
+require('dotenv').config();
+const initReminderSystem = require('./events/reminder.js');
+
 
 // Create a new client instance
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates] });
 
 client.cooldowns = new Collection();
 client.commands = new Collection();
@@ -143,6 +148,88 @@ client.on(Events.InteractionCreate, async interaction => {
 	}
 });
 
+client.on(Events.InteractionCreate, async interaction => {
+	if (!interaction.isChatInputCommand()) return;
+
+	if (interaction.commandName === 'ping') {
+		// Create the modal
+		const modal = new ModalBuilder()
+			.setCustomId('myModal')
+			.setTitle('My Modal');
+
+		// Add components to modal
+
+		// Create the text input components
+		const favoriteColorInput = new TextInputBuilder()
+			.setCustomId('favoriteColorInput')
+		    // The label is the prompt the user sees for this input
+			.setLabel('What\'s your favorite color?')
+		    // Short means only a single line of text
+			.setStyle(TextInputStyle.Short);
+
+		const hobbiesInput = new TextInputBuilder()
+			.setCustomId('hobbiesInput')
+			.setLabel('What\'s some of your favorite hobbies?')
+		    // Paragraph means multiple lines of text.
+			.setStyle(TextInputStyle.Paragraph);
+
+		// An action row only holds one text input,
+		// so you need one action row per text input.
+		const firstActionRow = new ActionRowBuilder().addComponents(favoriteColorInput);
+		const secondActionRow = new ActionRowBuilder().addComponents(hobbiesInput);
+
+		// Add inputs to the modal
+		modal.addComponents(firstActionRow, secondActionRow);
+
+		// Show the modal to the user
+		await interaction.showModal(modal);
+	}
+});
+
+client.on(Events.InteractionCreate, (interaction) => {
+	if (!interaction.isModalSubmit()) return;
+	console.log(interaction);
+});
+
+client.on('interactionCreate', async (interaction) => {
+	if (!interaction.isUserContextMenuCommand()) return;
+
+	const command = client.commands.get(interaction.commandName);
+	if (!command) return;
+
+	try {
+		await command.execute(interaction);
+	}
+	catch (error) {
+		console.error(error);
+		await interaction.reply({ content: 'There was an error while executing this command.', ephemeral: true });
+	}
+});
+
 
 // Log in to Discord with your client's token
-client.login(token);
+async function start() {
+	try {
+		const mongoUri = process.env.MONGO_URI || process.env.mongoURL;
+		if (!mongoUri) {
+			throw new Error('Mongo URI not found in env');
+		}
+
+		await mongoose.connect(mongoUri);
+		console.log('Connected to MongoDB');
+
+		await client.login(token);
+		console.log('Logged in to Discord');
+
+		// Initialize the reminder system after bot is ready
+		client.on(Events.ClientReady, () => {
+			initReminderSystem(client);
+		});
+	}
+	catch (err) {
+		console.error('Failed to start bot:', err);
+		process.exit(1);
+	}
+}
+
+start();
